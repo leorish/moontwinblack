@@ -1,0 +1,2291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Garden of Black Roses</title>
+  <style>
+    /* Reset & Viewport Constraints */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      min-height: 100dvh;
+      overflow: hidden;
+      background-color: #050507;
+      color: #f0f0f5;
+      font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    #canvas-container {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100dvh;
+      touch-action: manipulation;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Film Grain Overlay */
+    .film-grain {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+      z-index: 5;
+    }
+
+    /* =========================================================================
+       PASSWORD GATE LOCK SCREEN
+       ========================================================================= */
+    #lock-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background-color: #050507;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      padding-top: max(24px, env(safe-area-inset-top));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+      padding-left: max(24px, env(safe-area-inset-left));
+      padding-right: max(24px, env(safe-area-inset-right));
+      transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1),
+                  filter 1.2s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #lock-screen.dissolve {
+      opacity: 0;
+      filter: blur(14px);
+      transform: scale(1.04);
+      pointer-events: none;
+    }
+
+    .lock-glow {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 65vh;
+      background: radial-gradient(ellipse at bottom, rgba(122, 12, 28, 0.24) 0%, rgba(42, 5, 8, 0.08) 55%, transparent 75%);
+      pointer-events: none;
+      animation: lockGlowBreath 6s ease-in-out infinite;
+    }
+    @keyframes lockGlowBreath {
+      0%, 100% { opacity: 0.85; transform: scaleY(0.96); }
+      50% { opacity: 1.0; transform: scaleY(1.04); }
+    }
+
+    #lock-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .lock-card {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 380px;
+      padding: 32px 28px;
+      border-radius: 18px;
+      background: rgba(12, 13, 20, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .lock-title {
+      font-family: monospace;
+      font-size: 11px;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #9fa4ba;
+      margin-bottom: 6px;
+    }
+
+    .lock-line {
+      width: 36px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.16);
+      margin-bottom: 24px;
+    }
+
+    .lock-form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .lock-input-group {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      background: #14151f;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 12px;
+      padding: 3px;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .lock-input-group:focus-within {
+      border-color: rgba(255, 255, 255, 0.4);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+    }
+    .lock-input-group.shake {
+      animation: shake 0.5s ease-in-out;
+      border-color: #8b1528 !important;
+      box-shadow: 0 0 0 2px rgba(139, 21, 40, 0.35) !important;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+
+    .lock-input {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 14px;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ffffff;
+      /* Font size of 16px strictly avoids iOS auto-zoom */
+      font-size: 16px;
+      font-family: 'Playfair Display', Georgia, serif;
+    }
+    .lock-input::placeholder {
+      color: rgba(255, 255, 255, 0.25);
+    }
+    .lock-input:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .lock-eye-btn {
+      background: transparent;
+      border: none;
+      padding: 8px 10px;
+      cursor: pointer;
+      color: rgba(255, 255, 255, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s ease;
+    }
+    .lock-eye-btn:hover {
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .lock-eye-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.5;
+    }
+
+    .lock-submit-btn {
+      background: rgba(255, 255, 255, 0.10);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9px;
+      padding: 8px 14px;
+      margin-right: 2px;
+      cursor: pointer;
+      color: #ffffff;
+      font-family: monospace;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .lock-submit-btn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.20);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .lock-submit-btn:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+    .lock-submit-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .lock-submit-btn svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+    }
+
+    .lock-hint {
+      margin-top: 16px;
+      font-size: 12px;
+      font-style: italic;
+      color: #8c90a3;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+    .lock-hint.show {
+      opacity: 1;
+    }
+
+    .lock-error {
+      margin-top: 8px;
+      font-size: 12px;
+      font-family: monospace;
+      color: #e55368;
+      letter-spacing: 0.04em;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      min-height: 18px;
+    }
+    .lock-error.show {
+      opacity: 1;
+    }
+
+    .lock-cooldown {
+      margin-top: 6px;
+      font-size: 12px;
+      font-family: monospace;
+      color: #c97f8c;
+      display: none;
+    }
+
+    /* =========================================================================
+       ROMANTIC TEXT REVEAL OVERLAY
+       ========================================================================= */
+    #text-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      padding-top: max(24px, env(safe-area-inset-top));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+      padding-left: max(24px, env(safe-area-inset-left));
+      padding-right: max(24px, env(safe-area-inset-right));
+      text-align: center;
+      pointer-events: none;
+      z-index: 10;
+      transition: background 1.5s ease;
+    }
+
+    .text-container {
+      max-width: 660px;
+      width: 100%;
+      padding: 16px;
+    }
+
+    .line-subtitle {
+      font-family: monospace;
+      font-size: 12px;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #9fa4ba;
+      margin-bottom: 12px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 1.2s ease, transform 1.2s ease;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.95);
+    }
+
+    .line-title {
+      font-size: clamp(2.2rem, 6vw, 4.5rem);
+      font-weight: 400;
+      line-height: 1.15;
+      color: #f7f7fa;
+      margin-bottom: 20px;
+      letter-spacing: 0.02em;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 1.2s ease, transform 1.2s ease;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.95);
+    }
+
+    .line-verse {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(1.1rem, 3.2vw, 1.45rem);
+      font-style: italic;
+      color: #d6d6e2;
+      line-height: 1.6;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 1.2s ease, transform 1.2s ease;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.95);
+      margin-bottom: 8px;
+    }
+
+    .line-verse.final {
+      color: #ffffff;
+      font-weight: 500;
+      margin-top: 12px;
+      font-size: clamp(1.2rem, 3.6vw, 1.65rem);
+    }
+
+    .divider {
+      width: 48px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.25);
+      margin: 18px auto 0;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+
+    /* Floating Memories Stage */
+    .memory-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      opacity: 0;
+      transform: translateY(14px) scale(0.96);
+      transition: opacity 1.4s ease, transform 1.4s ease;
+      pointer-events: auto;
+    }
+    .memory-card {
+      position: relative;
+      background: rgba(14, 15, 22, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      padding: 7px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(12px);
+      width: 140px;
+      transition: transform 0.3s ease;
+    }
+    .memory-card:hover {
+      transform: translateY(-4px) scale(1.03);
+    }
+    .memory-card.card-1 { transform: rotate(-3deg); }
+    .memory-card.card-2 { transform: rotate(3deg); }
+    .memory-media-wrap {
+      position: relative;
+      width: 100%;
+      height: 140px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000000;
+    }
+    .memory-media-wrap img, .memory-media-wrap video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .memory-caption {
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      font-family: monospace;
+      font-size: 9px;
+      color: #9ea3b5;
+      padding: 0 3px;
+    }
+
+    /* =========================================================================
+       CONTROLS BAR
+       ========================================================================= */
+    .controls-bar {
+      position: fixed;
+      bottom: max(16px, env(safe-area-inset-bottom));
+      right: max(16px, env(safe-area-inset-right));
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ctrl-btn {
+      background: rgba(16, 17, 24, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #a0a0b2;
+      padding: 8px 12px;
+      border-radius: 9999px;
+      font-family: monospace;
+      font-size: 12px;
+      cursor: pointer;
+      opacity: 0.38;
+      backdrop-filter: blur(8px);
+      transition: opacity 0.3s ease, background 0.3s ease, color 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ctrl-btn:hover {
+      opacity: 1;
+      background: rgba(28, 29, 38, 0.92);
+      color: #ffffff;
+    }
+    .ctrl-btn svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+    }
+
+    /* Moon Phase Selector Popover */
+    .moon-menu-container {
+      position: relative;
+    }
+    .moon-popover {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      background: rgba(12, 13, 20, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(14px);
+      width: 216px;
+      z-index: 50;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .moon-popover.open {
+      display: flex;
+    }
+    .moon-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .moon-phase-dot-btn {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #9499af;
+      padding: 3px;
+      transition: all 0.2s ease;
+    }
+    .moon-phase-dot-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .moon-phase-dot-btn.active {
+      background: rgba(200, 215, 255, 0.18);
+      border-color: rgba(215, 225, 255, 0.55);
+      color: #ffffff;
+    }
+    .moon-phase-dot-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+    .moon-auto-toggle {
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 6px;
+      font-size: 10px;
+      color: #8a8ea4;
+      font-family: monospace;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+    }
+    .moon-auto-toggle input {
+      cursor: pointer;
+      accent-color: #9da8cf;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Film Grain Overlay -->
+  <div class="film-grain"></div>
+
+  <!-- PASSWORD GATE LOCK SCREEN (shown first, before anything else) -->
+  <div id="lock-screen">
+    <div class="lock-glow"></div>
+    <canvas id="lock-canvas"></canvas>
+
+    <div class="lock-card" id="lock-card">
+      <div class="lock-title">ENTER THE GARDEN</div>
+      <div class="lock-line"></div>
+
+      <form id="lock-form" class="lock-form" onsubmit="return false;">
+        <div class="lock-input-group" id="lock-input-group">
+          <input
+            type="password"
+            id="lock-input"
+            class="lock-input"
+            placeholder="Enter password..."
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+            aria-label="Password to enter the garden"
+          />
+          <button type="button" id="lock-toggle-eye" class="lock-eye-btn" aria-label="Toggle password visibility">
+            <svg id="eye-icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button type="submit" id="lock-open-btn" class="lock-submit-btn">
+            <span>Open</span>
+            <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+
+        <div id="lock-hint" class="lock-hint">Hint: my nickname for you, all in small letters.</div>
+        <div id="lock-error" class="lock-error">Not quite, try again</div>
+        <div id="lock-cooldown" class="lock-cooldown"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Interactive Canvas Scene -->
+  <div id="canvas-container">
+    <canvas id="gardenCanvas"></canvas>
+  </div>
+
+  <!-- Poetic Text Reveal Overlay -->
+  <div id="text-overlay">
+    <div class="text-container">
+      <!-- Floating Media Memories Stage -->
+      <div id="memory-stage" class="memory-stage">
+        <div class="memory-card card-1">
+          <div class="memory-media-wrap">
+            <img src="/assets/aistudio/Screenshot_2026-10-25_at_11.04.12_PM_3586af36.png" alt="Memory Photo" />
+          </div>
+          <div class="memory-caption">
+            <span>Precious Moment</span>
+            <span>❤</span>
+          </div>
+        </div>
+
+        <div class="memory-card card-2">
+          <div class="memory-media-wrap">
+            <video id="standalone-video" src="/assets/aistudio/btw.twixyy__2026-09-12T171323.000Z_eb7561d6.mp4" autoplay loop playsinline muted></video>
+          </div>
+          <div class="memory-caption">
+            <span>Moontwin Smile</span>
+            <span>✨</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="line-subtitle" class="line-subtitle">FOREVER & ALWAYS</div>
+      <h1 id="line-title" class="line-title">Prachi</h1>
+      <div id="line-moontwin" class="line-subtitle" style="color: #c89ba8; letter-spacing: 0.22em; font-size: 11px; margin-bottom: 16px;">MY MOONTWIN & ONLY FAVORITE PERSON</div>
+      <div id="line-verse1" class="line-verse">My soul aches deeply for the pain I caused you.</div>
+      <div id="line-verse2" class="line-verse">You are the silent gravity pulling my world together, the single light that guides me through the heaviest darkness.</div>
+      <div id="line-verse3" class="line-verse">I promise we will fix this together, breaking down the psychological barriers and subconscious walls between us.</div>
+      <div id="line-verse4" class="line-verse">Every breath I take carries a quiet devotion to shielding your heart, refusing to manipulate your emotions or play mind games.</div>
+      <div id="line-verse5" class="line-verse final">You hold my entire universe in your hands, forever and always.</div>
+      <div id="divider" class="divider"></div>
+    </div>
+  </div>
+
+  <!-- Controls Bar -->
+  <div class="controls-bar">
+    <button id="replay-btn" class="ctrl-btn" aria-label="Replay bloom animation" title="Replay bloom animation">
+      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      <span>Replay</span>
+    </button>
+
+    <div class="moon-menu-container">
+      <button id="moon-btn" class="ctrl-btn" aria-label="Moon phase selector" title="Moon phase selector">
+        <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <span id="moon-btn-label">Moon</span>
+      </button>
+      <div id="moon-popover" class="moon-popover">
+        <div style="font-size: 11px; font-family: monospace; color: #a4a9c0; margin-bottom: 2px;">LUNAR PHASES</div>
+        <div class="moon-grid">
+          <button type="button" class="moon-phase-dot-btn" data-phase="new" title="New Moon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-dasharray="2 2"/></svg>
+          </button>
+          <button type="button" class="moon-phase-dot-btn" data-phase="waxing-crescent" title="Waxing Crescent">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#1e2235"/><path d="M12 4 A8 8 0 0 1 12 20 A6 8 0 0 0 12 4" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="moon-phase-dot-btn" data-phase="first-quarter" title="First Quarter">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#1e2235"/><path d="M12 4 A8 8 0 0 1 12 20 Z" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="moon-phase-dot-btn" data-phase="waxing-gibbous" title="Waxing Gibbous">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/><path d="M12 4 A4 8 0 0 0 12 20 A8 8 0 0 1 12 4" fill="#1e2235"/></svg>
+          </button>
+          <button type="button" class="moon-phase-dot-btn" data-phase="full" title="Full Moon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="moon-phase-dot-btn" data-phase="waning-gibbous" title="Waning Gibbous">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/><path d="M12 4 A4 8 0 0 1 12 20 A8 8 0 0 0 12 4" fill="#1e2235"/></svg>
+          </button>
+          <button type="button" class="moon-phase-dot-btn" data-phase="last-quarter" title="Last Quarter">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#1e2235"/><path d="M12 4 A8 8 0 0 0 12 20 Z" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="moon-phase-dot-btn" data-phase="waning-crescent" title="Waning Crescent">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#1e2235"/><path d="M12 4 A8 8 0 0 0 12 20 A6 8 0 0 1 12 4" fill="currentColor"/></svg>
+          </button>
+        </div>
+        <label class="moon-auto-toggle">
+          <span>Auto Cycle (20s)</span>
+          <input type="checkbox" id="moon-auto-checkbox" />
+        </label>
+      </div>
+    </div>
+
+    <button id="music-btn" class="ctrl-btn" aria-label="Toggle ambient music" title="Toggle ambient music">
+      <svg id="music-icon" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      <span id="music-btn-label">Music</span>
+    </button>
+  </div>
+
+  <script>
+    /**
+     * =========================================================================
+     * GARDEN OF BLACK ROSES - CONFIGURATION
+     * All artistic settings, SHA-256 password hash, timing, audio & atmospheric physics.
+     * =========================================================================
+     */
+    const CONFIG = {
+      // Security Gate
+      gate: {
+        // SHA-256 hash of the password (never stored as plaintext)
+        passwordHash: '808deed8da4a6f641cb040f34d6e8e5a947821c625231996199a3cb592ce6aa3',
+        hint: 'Hint: my nickname for you, all in small letters.',
+        lockoutAttempts: 5,
+        lockoutDurationSeconds: 30
+      },
+
+      // Ambient Procedural Gothic Audio (Web Audio API)
+      music: {
+        volume: 0.15,
+        fadeDuration: 4.0
+      },
+
+      // Devotion Text
+      text: {
+        to: 'Prachi',
+        count: 99,
+        subtitle: 'FOREVER & ALWAYS',
+        moontwinSubtitle: 'MY MOONTWIN & ONLY FAVORITE PERSON'
+      },
+
+      // Black Rose Population
+      roses: {
+        countPC: 90,
+        countMobile: 55,
+        minCount: 15,
+        maxCount: 140,
+        wineRatio: 0.12,
+        breathing: {
+          frequency: 1.15,
+          scaleAmplitude: 0.028
+        },
+        depthLayers: [
+          { scalePC: [0.50, 0.68], scaleMobile: [0.55, 0.74], yRangePC: [0.38, 0.58], yRangeMobile: [0.42, 0.60], opacity: 0.65, stemWidth: 1.5 },
+          { scalePC: [0.72, 0.98], scaleMobile: [0.78, 1.05], yRangePC: [0.55, 0.78], yRangeMobile: [0.58, 0.78], opacity: 0.88, stemWidth: 2.2 },
+          { scalePC: [1.05, 1.42], scaleMobile: [1.15, 1.52], yRangePC: [0.75, 0.94], yRangeMobile: [0.76, 0.93], opacity: 1.0, stemWidth: 3.2 }
+        ]
+      },
+
+      // Silver Sparkles (exclusive to front-row roses)
+      sparkles: { count: 20, color: '#d8dce6', minPeriod: 2.0, maxPeriod: 4.0 },
+
+      // Pointer Spring Physics
+      pointer: { radius: 140, maxPush: 0.14, spring: 0.08, damping: 0.85 },
+
+      // Color Palettes
+      colors: {
+        background: '#050507',
+        candleDeepRed: {
+          color: '#7a0c1c',
+          fadeColor: '#2a0508',
+          opacity: 0.20,
+          breathPeriod: 6.0,
+          breathMin: 0.85,
+          breathMax: 1.0
+        },
+        blackRose: {
+          base: '#0a0a0c', mid1: '#1a1a1f', mid2: '#2b2b33',
+          burgundyShade: 'rgba(58, 10, 20, 0.65)',
+          rimHighlight: 'rgba(138, 138, 153, 0.30)',
+          velvetSheen: 'rgba(255, 255, 255, 0.07)'
+        },
+        wineRose: {
+          base: '#1a040a', mid1: '#2a0610', mid2: '#420d1c',
+          burgundyShade: 'rgba(80, 10, 25, 0.70)',
+          rimHighlight: 'rgba(180, 130, 150, 0.38)',
+          velvetSheen: 'rgba(255, 220, 225, 0.10)'
+        },
+        stems: { deepGreen: '#1a3324', midGreen: '#2a5238', lightGreen: '#3f6b4a', highlight: 'rgba(100, 175, 120, 0.35)' },
+        embers: ['rgba(255, 180, 110, 0.95)', 'rgba(255, 110, 80, 0.85)', 'rgba(255, 70, 90, 0.80)', 'rgba(255, 215, 150, 0.90)']
+      },
+
+      // Growth Timing Phases
+      timing: {
+        stemDuration: 2.0,
+        budScaleDuration: 1.5,
+        bloomDuration: 2.5,
+        textStart: 5.0,
+        textFade: 2.0
+      },
+
+      // Wind & Wave Gusts
+      wind: {
+        baseFrequency: 0.75,
+        baseAmplitudeDeg: 1.8,
+        gust: {
+          minInterval: 6.0,
+          maxInterval: 12.0,
+          rampUp: 1.5,
+          fadeOut: 2.5,
+          peakLeanMin: 3.2,
+          peakLeanMax: 4.5,
+          waveCrossing: 1.8
+        }
+      },
+
+      // Gothic Moon
+      moon: {
+        defaultPhase: 'waxing-crescent',
+        autoCycle: 20.0,
+        crossfade: 1.2
+      },
+
+      // Atmospheric Densities
+      atmosphere: { particleCount: 50, grassCount: 70 },
+
+      // Adaptive Performance
+      adaptiveQuality: {
+        targetFrameTimeMs: 20,
+        checkWindowSeconds: 2.0,
+        reductionFactor: 0.30
+      }
+    };
+
+    /**
+     * =========================================================================
+     * EASING & MATH UTILITIES
+     * =========================================================================
+     */
+    function easeOutCubic(x) { return 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3); }
+    function easeInOutSine(x) { return (1 - Math.cos(Math.PI * Math.max(0, Math.min(1, x)))) / 2; }
+    function bezierPoint(t, p0, p1, p2) {
+      const mt = 1 - t;
+      return mt * mt * p0 + 2 * mt * t * p1 + t * t * p2;
+    }
+
+    async function sha256Hex(str) {
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(str));
+      const arr = Array.from(new Uint8Array(buf));
+      return arr.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    /**
+     * =========================================================================
+     * PROCEDURAL GOTHIC AMBIENT MUSIC (Web Audio API)
+     * =========================================================================
+     */
+    let audioCtx = null;
+    let masterGain = null;
+    let audioStarted = false;
+    let isMusicMuted = false;
+
+    function initGothicAmbientAudio() {
+      if (audioStarted) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        audioCtx = new AudioCtx();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+
+        masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+        // Fade in to 0.15 over 4 seconds
+        masterGain.gain.exponentialRampToValueAtTime(CONFIG.music.volume, audioCtx.currentTime + CONFIG.music.fadeDuration);
+        masterGain.connect(audioCtx.destination);
+
+        // Low-pass filter (750 Hz)
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(750, audioCtx.currentTime);
+        filter.Q.setValueAtTime(1.8, audioCtx.currentTime);
+
+        // Slow LFO for breathing filter sweep
+        const lfo = audioCtx.createOscillator();
+        const lfoGain = audioCtx.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(0.12, audioCtx.currentTime);
+        lfoGain.gain.setValueAtTime(190, audioCtx.currentTime);
+        lfo.connect(lfoGain);
+        lfoGain.connect(filter.frequency);
+        lfo.start();
+
+        // Feedback Delay simulated cathedral acoustics
+        const delay = audioCtx.createDelay();
+        delay.delayTime.setValueAtTime(0.38, audioCtx.currentTime);
+        const feedback = audioCtx.createGain();
+        feedback.gain.setValueAtTime(0.42, audioCtx.currentTime);
+        const delayFilter = audioCtx.createBiquadFilter();
+        delayFilter.type = 'lowpass';
+        delayFilter.frequency.setValueAtTime(1100, audioCtx.currentTime);
+
+        filter.connect(delay);
+        delay.connect(delayFilter);
+        delayFilter.connect(feedback);
+        feedback.connect(delay);
+        delayFilter.connect(masterGain);
+        filter.connect(masterGain);
+
+        // A Minor Chord Oscillators (A2 = 110Hz, E3 = 164.81Hz, C4 = 261.63Hz + sub-bass A1 = 55Hz)
+        const chord = [
+          { freq: 110.0, type: 'triangle', detune: 2.5, gain: 0.32 },
+          { freq: 164.81, type: 'sine', detune: -3.0, gain: 0.28 },
+          { freq: 261.63, type: 'sine', detune: 1.5, gain: 0.22 },
+          { freq: 55.0, type: 'sine', detune: 0, gain: 0.18 }
+        ];
+
+        chord.forEach(note => {
+          const osc = audioCtx.createOscillator();
+          const oscGain = audioCtx.createGain();
+          osc.type = note.type;
+          osc.frequency.setValueAtTime(note.freq, audioCtx.currentTime);
+          osc.detune.setValueAtTime(note.detune, audioCtx.currentTime);
+          oscGain.gain.setValueAtTime(note.gain, audioCtx.currentTime);
+          osc.connect(oscGain);
+          oscGain.connect(filter);
+          osc.start();
+        });
+
+        audioStarted = true;
+        scheduleNextAtmosphericSound();
+      } catch (err) {
+        console.warn('AudioContext error:', err);
+      }
+    }
+
+    let ambientTimerId = null;
+    function scheduleNextAtmosphericSound() {
+      if (ambientTimerId) clearTimeout(ambientTimerId);
+      const delayMs = 14000 + Math.random() * 14000;
+      ambientTimerId = setTimeout(() => {
+        if (audioCtx && !isMusicMuted) {
+          if (Math.random() < 0.6) playDistantWindChimes();
+          else playFaintOwlHoot();
+        }
+        scheduleNextAtmosphericSound();
+      }, delayMs);
+    }
+
+    function playDistantWindChimes() {
+      if (!audioCtx || !masterGain || isMusicMuted) return;
+      const now = audioCtx.currentTime;
+      const notes = [1046.5, 1174.66, 1318.51, 1567.98, 1760.0];
+      const count = 2 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < count; i++) {
+        const strikeTime = now + i * (0.15 + Math.random() * 0.25);
+        const freq = notes[Math.floor(Math.random() * notes.length)];
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const bpf = audioCtx.createBiquadFilter();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, strikeTime);
+        bpf.type = 'bandpass';
+        bpf.frequency.setValueAtTime(freq, strikeTime);
+        bpf.Q.setValueAtTime(14, strikeTime);
+        gain.gain.setValueAtTime(0.0001, strikeTime);
+        gain.gain.linearRampToValueAtTime(0.02, strikeTime + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, strikeTime + 2.5);
+        osc.connect(bpf);
+        bpf.connect(gain);
+        gain.connect(masterGain);
+        osc.start(strikeTime);
+        osc.stop(strikeTime + 2.8);
+      }
+    }
+
+    function playFaintOwlHoot() {
+      if (!audioCtx || !masterGain || isMusicMuted) return;
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const lpf = audioCtx.createBiquadFilter();
+      osc.type = 'triangle';
+      lpf.type = 'lowpass';
+      lpf.frequency.setValueAtTime(480, now);
+      lpf.Q.setValueAtTime(3.0, now);
+      osc.frequency.setValueAtTime(390, now);
+      osc.frequency.exponentialRampToValueAtTime(410, now + 0.25);
+      osc.frequency.exponentialRampToValueAtTime(328, now + 0.7);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.022, now + 0.2);
+      gain.gain.linearRampToValueAtTime(0.009, now + 0.45);
+      gain.gain.linearRampToValueAtTime(0.020, now + 0.65);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.6);
+      osc.connect(lpf);
+      lpf.connect(gain);
+      gain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 1.8);
+    }
+
+    function playPetalDetachSound() {
+      if (!audioCtx || !masterGain || isMusicMuted) return;
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const bpf = audioCtx.createBiquadFilter();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(440, now + 0.35);
+      bpf.type = 'bandpass';
+      bpf.frequency.setValueAtTime(650, now);
+      bpf.Q.setValueAtTime(2.5, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.028, now + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+      osc.connect(bpf);
+      bpf.connect(gain);
+      gain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.45);
+    }
+
+    function toggleMusicMute() {
+      if (!audioCtx || !masterGain) {
+        initGothicAmbientAudio();
+        isMusicMuted = false;
+        updateMusicUI();
+        return;
+      }
+      isMusicMuted = !isMusicMuted;
+      const targetGain = isMusicMuted ? 0.0001 : CONFIG.music.volume;
+      masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(targetGain, audioCtx.currentTime + 0.4);
+      updateMusicUI();
+    }
+
+    function updateMusicUI() {
+      const musicBtnLabel = document.getElementById('music-btn-label');
+      const musicIcon = document.getElementById('music-icon');
+      if (musicBtnLabel) musicBtnLabel.textContent = isMusicMuted ? 'Muted' : 'Music';
+      if (musicIcon) {
+        if (isMusicMuted) {
+          musicIcon.innerHTML = '<path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>';
+        } else {
+          musicIcon.innerHTML = '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>';
+        }
+      }
+    }
+
+    /**
+     * =========================================================================
+     * URL PARAMETERS & MOON PHASE NORMALIZATION
+     * =========================================================================
+     */
+    const urlParams = new URLSearchParams(window.location.search);
+    const customTo = urlParams.get('to');
+    const customCount = parseInt(urlParams.get('count'), 10);
+    const customMoon = urlParams.get('moon');
+    const customHemisphere = urlParams.get('hemisphere');
+    const autostart = urlParams.get('autostart') === '1' || urlParams.get('autostart') === 'true';
+
+    let moonHemisphere = customHemisphere && customHemisphere.toLowerCase() === 'south' ? 'south' : 'north';
+
+    const realMoonImg = new Image();
+    let realMoonLoaded = false;
+    realMoonImg.src = 'assets/aistudio/realmoon_473551c2.webp';
+    realMoonImg.onload = () => { realMoonLoaded = true; };
+
+    function normalizePhase(p) {
+      if (!p) return 'waxing-crescent';
+      p = p.toLowerCase().trim();
+      if (p === 'auto') return 'auto';
+      if (p === 'new') return 'new';
+      if (p === 'crescent' || p === 'waxing-crescent') return 'waxing-crescent';
+      if (p === 'quarter' || p === 'first-quarter') return 'first-quarter';
+      if (p === 'gibbous' || p === 'waxing-gibbous') return 'waxing-gibbous';
+      if (p === 'full') return 'full';
+      if (p === 'waning-gibbous') return 'waning-gibbous';
+      if (p === 'last-quarter') return 'last-quarter';
+      if (p === 'waning-crescent') return 'waning-crescent';
+      return 'waxing-crescent';
+    }
+
+    const initialMoon = normalizePhase(customMoon);
+    let moonIsAuto = initialMoon === 'auto';
+    let moonCurrentPhase = moonIsAuto ? 'waxing-crescent' : initialMoon;
+    let moonTargetPhase = moonCurrentPhase;
+    let moonTransitionProgress = 1.0;
+    let moonAutoTimer = 0;
+
+    let gustActive = false;
+    let gustStartTime = 0;
+    let gustDuration = 4.0;
+    let gustNextTime = 6.0 + Math.random() * 6.0;
+    let gustDirection = 1;
+    let gustPeakLean = 3.8;
+
+    const activeTo = customTo && customTo.trim() ? customTo.trim() : CONFIG.text.to;
+    document.getElementById('line-title').textContent = activeTo;
+
+    /**
+     * =========================================================================
+     * CANVAS & SPRITE ENGINE SETUP
+     * =========================================================================
+     */
+    const canvas = document.getElementById('gardenCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvas-container');
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches || autostart;
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let dpr = 1;
+    let startTime = performance.now();
+    let lastTime = performance.now();
+    let simTime = prefersReducedMotion ? 10.0 : 0;
+    let gardenRunning = false;
+
+    let roses = [];
+    let sparkles = [];
+    let particles = [];
+    let grass = [];
+    let fallingPetals = [];
+    let pointerX = null, pointerY = null;
+
+    let roseSprites = [];
+    let budSprites = [];
+    let glowSprite = null;
+    let sparkleSprite = null;
+    let moonSprite = null;
+    let cachedMoonRadius = 0;
+
+    // Adaptive Performance Tracking
+    let frameTimes = [];
+    let lastAdaptiveCheck = performance.now();
+    let isReducedQuality = false;
+
+    function buildSparkleSprite() {
+      const sc = document.createElement('canvas');
+      sc.width = 32; sc.height = 32;
+      const sctx = sc.getContext('2d');
+      const cx = 16, cy = 16;
+      const aura = sctx.createRadialGradient(cx, cy, 1, cx, cy, 14);
+      aura.addColorStop(0, 'rgba(216, 220, 230, 0.9)');
+      aura.addColorStop(0.3, 'rgba(180, 190, 215, 0.35)');
+      aura.addColorStop(1, 'rgba(216, 220, 230, 0)');
+      sctx.fillStyle = aura;
+      sctx.beginPath(); sctx.arc(cx, cy, 14, 0, Math.PI * 2); sctx.fill();
+
+      sctx.fillStyle = '#ffffff';
+      sctx.beginPath();
+      sctx.moveTo(cx, cy - 10);
+      sctx.quadraticCurveTo(cx, cy, cx + 10, cy);
+      sctx.quadraticCurveTo(cx, cy, cx, cy + 10);
+      sctx.quadraticCurveTo(cx, cy, cx - 10, cy);
+      sctx.quadraticCurveTo(cx, cy, cx, cy - 10);
+      sctx.fill();
+      sparkleSprite = sc;
+    }
+
+    function buildGlowSprite(w, h) {
+      const gSize = Math.max(512, Math.round(Math.max(w * 0.7, h * 0.65)));
+      const gc = document.createElement('canvas');
+      gc.width = gSize; gc.height = gSize;
+      const gctx = gc.getContext('2d');
+      const cx = gSize / 2, cy = gSize / 2, r = gSize / 2;
+      const grad = gctx.createRadialGradient(cx, cy, 5, cx, cy, r);
+      grad.addColorStop(0, 'rgba(122, 12, 28, 1)');
+      grad.addColorStop(0.32, 'rgba(75, 8, 16, 0.85)');
+      grad.addColorStop(0.68, 'rgba(42, 5, 8, 0.45)');
+      grad.addColorStop(1, 'rgba(5, 5, 7, 0)');
+      gctx.fillStyle = grad;
+      gctx.fillRect(0, 0, gSize, gSize);
+      glowSprite = gc;
+    }
+
+    function buildRoseSprites() {
+      roseSprites = [];
+      budSprites = [];
+      const spriteSize = Math.round(96 * dpr);
+      const cx = spriteSize / (2 * dpr), cy = spriteSize / (2 * dpr);
+
+      // 0-5: Standard black & wine roses across 3 layers
+      for (let layer = 0; layer < 3; layer++) {
+        for (const isWine of [false, true]) {
+          const rc = document.createElement('canvas');
+          rc.width = spriteSize; rc.height = spriteSize;
+          const rctx = rc.getContext('2d');
+          rctx.scale(dpr, dpr);
+
+          const palette = isWine ? CONFIG.colors.wineRose : CONFIG.colors.blackRose;
+          const isBack = layer === 0;
+
+          rctx.save();
+          rctx.translate(cx, cy);
+
+          // Calyx sepal leaves
+          rctx.fillStyle = CONFIG.colors.stems.deepGreen;
+          for (let s = 0; s < 5; s++) {
+            rctx.save();
+            rctx.rotate((s * Math.PI * 2) / 5);
+            rctx.beginPath(); rctx.moveTo(0, 0); rctx.quadraticCurveTo(-4, 6, -10, 14); rctx.quadraticCurveTo(-2, 8, 0, 0); rctx.fill();
+            rctx.restore();
+          }
+
+          // 6 spiraling velvet petals
+          for (let p = 0; p < 6; p++) {
+            const norm = p / 5;
+            const angle = p * 2.39996;
+            const rx = 26 * (1 - norm * 0.58);
+            const ry = 19 * (1 - norm * 0.55);
+            const curl = (1 - norm) * 0.38;
+
+            rctx.save();
+            rctx.rotate(angle + curl * 0.25);
+            rctx.beginPath();
+            rctx.moveTo(0, 0);
+            rctx.bezierCurveTo(-rx * 0.9, -ry * 0.4, -rx * (1.0 + curl * 0.3), -ry * (1.1 + curl * 0.4), 0, -ry * (1.2 + curl * 0.3));
+            rctx.bezierCurveTo(rx * (1.0 + curl * 0.3), -ry * (1.1 + curl * 0.4), rx * 0.9, -ry * 0.4, 0, 0);
+            rctx.closePath();
+
+            const grad = rctx.createRadialGradient(0, -ry * 0.35, 2, 0, -ry * 0.75, rx * 1.3);
+            grad.addColorStop(0, palette.burgundyShade);
+            grad.addColorStop(0.35, palette.base);
+            grad.addColorStop(0.72, palette.mid1);
+            grad.addColorStop(1, palette.mid2);
+            rctx.fillStyle = grad;
+            rctx.fill();
+
+            if (p < 4) {
+              rctx.save();
+              rctx.clip();
+              const sheen = rctx.createLinearGradient(-rx * 0.5, -ry, rx * 0.5, 0);
+              sheen.addColorStop(0, 'rgba(255, 255, 255, 0)');
+              sheen.addColorStop(0.5, palette.velvetSheen);
+              sheen.addColorStop(1, 'rgba(255, 255, 255, 0)');
+              rctx.fillStyle = sheen;
+              rctx.fill();
+              rctx.restore();
+            }
+
+            rctx.strokeStyle = isBack ? 'rgba(120, 120, 135, 0.22)' : palette.rimHighlight;
+            rctx.lineWidth = isBack ? 0.8 : (p >= 4 ? 0.9 : 1.3);
+            rctx.stroke();
+            rctx.restore();
+          }
+
+          rctx.beginPath(); rctx.arc(0, -3, 3.5, 0, Math.PI * 2); rctx.fillStyle = palette.base; rctx.fill();
+          rctx.beginPath(); rctx.arc(0, -3, 2.4, 0.4, Math.PI * 1.6); rctx.strokeStyle = palette.rimHighlight; rctx.lineWidth = 0.8; rctx.stroke();
+          rctx.restore();
+
+          roseSprites.push(rc);
+
+          const bc = document.createElement('canvas');
+          bc.width = Math.round(48 * dpr); bc.height = Math.round(48 * dpr);
+          const bctx = bc.getContext('2d');
+          bctx.scale(dpr, dpr);
+          bctx.save();
+          bctx.translate(24, 24);
+          bctx.beginPath(); bctx.moveTo(0, -18); bctx.bezierCurveTo(-8, -12, -8, -1, 0, 2); bctx.bezierCurveTo(8, -1, 8, -12, 0, -18); bctx.closePath();
+          bctx.fillStyle = isWine ? '#2a0610' : '#1a1a1f';
+          bctx.fill();
+          bctx.strokeStyle = 'rgba(138, 138, 153, 0.35)'; bctx.lineWidth = 1.0; bctx.stroke();
+          bctx.restore();
+          budSprites.push(bc);
+        }
+      }
+    }
+
+    function buildMoonSprite() {
+      const shorter = Math.min(width, height);
+      cachedMoonRadius = Math.round(Math.max(52, Math.min(145, shorter * 0.16)));
+      const radius = cachedMoonRadius;
+      const padding = Math.round(radius * 1.5);
+      const size = Math.round((radius + padding) * 2);
+
+      const mCanvas = document.createElement('canvas');
+      mCanvas.width = Math.round(size * dpr);
+      mCanvas.height = Math.round(size * dpr);
+      const mCtx = mCanvas.getContext('2d');
+      if (!mCtx) return;
+      mCtx.scale(dpr, dpr);
+
+      const cx = size / 2;
+      const cy = size / 2;
+
+      // Soft radiant silver glow with faint crimson rim tint (~8%)
+      const halo = mCtx.createRadialGradient(cx, cy, radius * 0.7, cx, cy, radius + padding);
+      halo.addColorStop(0, 'rgba(235, 240, 255, 0.28)');
+      halo.addColorStop(0.35, 'rgba(215, 225, 245, 0.22)');
+      halo.addColorStop(0.75, 'rgba(190, 200, 230, 0.08)');
+      halo.addColorStop(0.92, 'rgba(165, 30, 48, 0.08)');
+      halo.addColorStop(1.0, 'rgba(165, 30, 48, 0)');
+      mCtx.fillStyle = halo;
+      mCtx.beginPath();
+      mCtx.arc(cx, cy, radius + padding, 0, Math.PI * 2);
+      mCtx.fill();
+
+      // Pale silver-white disc
+      const disc = mCtx.createRadialGradient(cx - radius * 0.25, cy - radius * 0.25, radius * 0.1, cx, cy, radius);
+      disc.addColorStop(0, '#f2f4fc');
+      disc.addColorStop(0.75, '#e8eaf2');
+      disc.addColorStop(1.0, '#dde0ed');
+      mCtx.fillStyle = disc;
+      mCtx.beginPath();
+      mCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+      mCtx.fill();
+
+      // Soft low-contrast crater maria
+      mCtx.save();
+      mCtx.beginPath();
+      mCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+      mCtx.clip();
+      mCtx.fillStyle = 'rgba(42, 45, 58, 0.16)';
+      const patches = [
+        { x: cx - radius * 0.28, y: cy - radius * 0.22, rx: radius * 0.32, ry: radius * 0.24, rot: 0.3 },
+        { x: cx + radius * 0.15, y: cy - radius * 0.30, rx: radius * 0.26, ry: radius * 0.18, rot: -0.2 },
+        { x: cx + radius * 0.35, y: cy - radius * 0.05, rx: radius * 0.22, ry: radius * 0.28, rot: 0.1 },
+        { x: cx - radius * 0.12, y: cy + radius * 0.18, rx: radius * 0.38, ry: radius * 0.25, rot: -0.4 },
+        { x: cx + radius * 0.22, y: cy + radius * 0.25, rx: radius * 0.20, ry: radius * 0.18, rot: 0.5 },
+      ];
+      for (let m of patches) {
+        mCtx.beginPath();
+        mCtx.ellipse(m.x, m.y, m.rx, m.ry, m.rot, 0, Math.PI * 2);
+        mCtx.fill();
+      }
+      mCtx.restore();
+
+      // Cold rim light
+      mCtx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+      mCtx.lineWidth = 1.2;
+      mCtx.beginPath();
+      mCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+      mCtx.stroke();
+
+      moonSprite = mCanvas;
+    }
+
+    function drawGothicMoon(timeVal) {
+      if (!moonSprite) return;
+      const isMobile = width < 768 || width < height;
+      const baseX = width * (isMobile ? 0.68 : 0.76);
+      const baseY = height * (isMobile ? 0.19 : 0.24);
+
+      const driftX = Math.sin(timeVal * (Math.PI * 2 / 60)) * 6;
+      const driftY = Math.cos(timeVal * (Math.PI * 2 / 72)) * 4;
+      const cx = baseX + (prefersReducedMotion ? 0 : driftX);
+      const cy = baseY + (prefersReducedMotion ? 0 : driftY);
+      const radius = cachedMoonRadius;
+      const spriteSize = moonSprite.width / dpr;
+
+      // Subtle breathing glow
+      const breathe = 0.92 + 0.08 * easeInOutSine((Math.sin(timeVal * (Math.PI * 2 / 7)) + 1) * 0.5);
+      ctx.save();
+      ctx.globalAlpha = prefersReducedMotion ? 1.0 : breathe;
+      ctx.drawImage(moonSprite, cx - spriteSize / 2, cy - spriteSize / 2, spriteSize, spriteSize);
+      ctx.restore();
+
+      // Photorealistic Waxing Crescent Texture Render
+      const isWaxingCrescent = moonCurrentPhase === 'waxing-crescent' || moonTargetPhase === 'waxing-crescent';
+      if (isWaxingCrescent && realMoonLoaded) {
+        let alpha = 1.0;
+        if (moonCurrentPhase === 'waxing-crescent' && moonTargetPhase !== 'waxing-crescent') {
+          alpha = 1.0 - easeInOutSine(moonTransitionProgress);
+        } else if (moonTargetPhase === 'waxing-crescent' && moonCurrentPhase !== 'waxing-crescent') {
+          alpha = easeInOutSine(moonTransitionProgress);
+        }
+        if (alpha > 0.01) {
+          ctx.save();
+          ctx.globalAlpha = (prefersReducedMotion ? 1.0 : breathe) * alpha;
+
+          // Hemisphere Rule:
+          // Northern: right lit ('D' shape)
+          // Southern: left lit ('C' shape, horizontally mirrored)
+          if (moonHemisphere === 'south') {
+            ctx.translate(cx, cy);
+            ctx.scale(-1, 1);
+            ctx.translate(-cx, -cy);
+          }
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(realMoonImg, cx - radius, cy - radius, radius * 2, radius * 2);
+          ctx.restore();
+
+          // Rim light
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+
+          if (alpha >= 0.99) return;
+        }
+      }
+
+      // 8-Phase Terminator Curve
+      const phaseAngles = {
+        'new': 0,
+        'waxing-crescent': Math.PI * 0.25,
+        'first-quarter': Math.PI * 0.50,
+        'waxing-gibbous': Math.PI * 0.75,
+        'full': Math.PI,
+        'waning-gibbous': Math.PI * 1.25,
+        'last-quarter': Math.PI * 1.50,
+        'waning-crescent': Math.PI * 1.75
+      };
+
+      let a1 = phaseAngles[moonCurrentPhase] ?? Math.PI;
+      let a2 = phaseAngles[moonTargetPhase] ?? Math.PI;
+      if (a2 < a1 && a1 - a2 > Math.PI) a2 += Math.PI * 2;
+      else if (a2 > a1 && a2 - a1 > Math.PI) a1 += Math.PI * 2;
+
+      const t = easeInOutSine(moonTransitionProgress);
+      const phi = (((a1 + (a2 - a1) * t) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+
+      if (Math.abs(phi - Math.PI) > 0.03) {
+        ctx.save();
+        if (moonHemisphere === 'south') {
+          ctx.translate(cx, cy);
+          ctx.scale(-1, 1);
+          ctx.translate(-cx, -cy);
+        }
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = 'rgba(8, 10, 18, 0.94)'; // shadow with faint earthshine
+        const isWaxing = phi <= Math.PI;
+        const k = -Math.cos(phi);
+        const rX = Math.abs(k) * radius;
+
+        ctx.beginPath();
+        if (isWaxing) {
+          ctx.arc(cx, cy, radius + 1, -Math.PI / 2, Math.PI / 2, true);
+        } else {
+          ctx.arc(cx, cy, radius + 1, -Math.PI / 2, Math.PI / 2, false);
+        }
+        ctx.ellipse(cx, cy, Math.max(0.1, rX), radius + 1, 0, Math.PI / 2, -Math.PI / 2, k > 0 ? isWaxing : !isWaxing);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      const isMobile = width < 768 || width < height;
+      dpr = Math.min(isMobile ? 2.0 : 2.5, window.devicePixelRatio || 1);
+
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+      ctx.resetTransform?.();
+      ctx.scale(dpr, dpr);
+
+      buildSparkleSprite();
+      buildGlowSprite(width, height);
+      buildRoseSprites();
+      buildMoonSprite();
+      if (gardenRunning) initGarden();
+    }
+
+    function initGarden() {
+      const isMobile = width < 768 || width < height;
+      const count = (!isNaN(customCount) && customCount > 0)
+        ? Math.max(CONFIG.roses.minCount, Math.min(CONFIG.roses.maxCount, customCount))
+        : (isMobile ? CONFIG.roses.countMobile : CONFIG.roses.countPC);
+
+      roses = [];
+      const layerCounts = [Math.round(count * 0.32), Math.round(count * 0.40), Math.round(count * 0.28)];
+      CONFIG.roses.depthLayers.forEach((layerCfg, layerIdx) => {
+        const lCount = layerCounts[layerIdx];
+        const yRange = isMobile ? layerCfg.yRangeMobile : layerCfg.yRangePC;
+        const scaleRange = isMobile ? layerCfg.scaleMobile : layerCfg.scalePC;
+
+        for (let i = 0; i < lCount; i++) {
+          const slice = width / lCount;
+          const tipX = Math.max(25, Math.min(width - 25, (i + 0.5) * slice + (Math.random() - 0.5) * slice * 0.8));
+          const tipY = height * (yRange[0] + Math.random() * (yRange[1] - yRange[0]));
+          const rootX = tipX + (Math.random() - 0.5) * (width * 0.12);
+          const rootY = height + 10;
+          const cpX = (rootX + tipX) / 2 + (Math.random() - 0.5) * 70;
+          const cpY = tipY + (rootY - tipY) * (0.45 + Math.random() * 0.2);
+          const scale = scaleRange[0] + Math.random() * (scaleRange[1] - scaleRange[0]);
+          const isWine = Math.random() < CONFIG.roses.wineRatio;
+
+          roses.push({
+            id: roses.length + 1,
+            layer: layerIdx,
+            isWine,
+            rootX, rootY, tipX, tipY, cpX, cpY, scale,
+            stemStart: Math.random() * 0.85,
+            stemDuration: 1.0 + Math.random() * 0.8,
+            budStart: 1.2 + Math.random() * 0.8,
+            bloomStart: 2.2 + Math.random() * 1.6,
+            bloomDuration: 1.1 + Math.random() * 0.7,
+            phase: Math.random() * Math.PI * 2,
+            stemWidth: layerCfg.stemWidth,
+            opacity: layerCfg.opacity,
+            spriteIdx: (layerIdx * 2) + (isWine ? 1 : 0),
+            pointerDeflection: 0,
+            pointerVelocity: 0
+          });
+        }
+      });
+
+      // Front-row sparkles
+      sparkles = [];
+      const frontRoses = roses.filter(r => r.layer === 2);
+      if (frontRoses.length > 0) {
+        for (let i = 0; i < CONFIG.sparkles.count; i++) {
+          const r = frontRoses[Math.floor(Math.random() * frontRoses.length)];
+          const ang = Math.random() * Math.PI * 2;
+          const dist = (Math.random() * 18 + 4) * r.scale;
+          sparkles.push({
+            roseId: r.id,
+            relX: Math.cos(ang) * dist,
+            relY: Math.sin(ang) * dist - 8 * r.scale,
+            period: CONFIG.sparkles.minPeriod + Math.random() * (CONFIG.sparkles.maxPeriod - CONFIG.sparkles.minPeriod),
+            phase: Math.random() * Math.PI * 2,
+            baseSize: 3 + Math.random() * 3
+          });
+        }
+      }
+
+      // Floating particles (40-60 tiny embers & silver sparks)
+      particles = [];
+      const pCount = isReducedQuality ? 35 : CONFIG.atmosphere.particleCount;
+      for (let i = 0; i < pCount; i++) {
+        const isRed = Math.random() < 0.35;
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: -0.4 - Math.random() * 0.8,
+          size: 1 + Math.random() * 2,
+          color: isRed ? 'rgba(235, 60, 45, 0.85)' : 'rgba(225, 230, 245, 0.90)',
+          haloColor: isRed ? 'rgba(200, 30, 40, 0.15)' : 'rgba(215, 225, 250, 0.12)',
+          alpha: 0.25 + Math.random() * 0.65,
+          twinkleSpeed: 0.8 + Math.random() * 2.0,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+
+      // Grass blades
+      grass = [];
+      const gCount = isReducedQuality ? 45 : CONFIG.atmosphere.grassCount;
+      for (let i = 0; i < gCount; i++) {
+        grass.push({
+          x: Math.random() * width,
+          height: 25 + Math.random() * 55,
+          width: 0.8 + Math.random() * 1.5,
+          curve: (Math.random() - 0.5) * 16,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+
+      fallingPetals = [];
+    }
+
+    /**
+     * =========================================================================
+     * INTERACTION: CLICK ROSE TO DETACH PETAL & POINTER SPRING DEFLECTION
+     * =========================================================================
+     */
+    function onPointerMove(e) {
+      const rect = canvas.getBoundingClientRect();
+      pointerX = e.clientX - rect.left;
+      pointerY = e.clientY - rect.top;
+    }
+
+    function onPointerDown(e) {
+      onPointerMove(e);
+      if (roses.length > 0) {
+        // Find nearest rose within reach
+        let nearestRose = null;
+        let minDist = 120;
+        for (const r of roses) {
+          const d = Math.hypot(r.tipX - pointerX, r.tipY - pointerY);
+          if (d < minDist) {
+            minDist = d;
+            nearestRose = r;
+          }
+        }
+
+        const originX = nearestRose ? nearestRose.tipX : pointerX;
+        const originY = nearestRose ? nearestRose.tipY : pointerY;
+        const isWine = nearestRose ? nearestRose.isWine : Math.random() < 0.2;
+        const scale = nearestRose ? nearestRose.scale : 1.0;
+
+        fallingPetals.push({
+          x: originX + (Math.random() - 0.5) * 10,
+          y: originY + (Math.random() - 0.5) * 6,
+          vx: (Math.random() - 0.5) * 0.9 + (gustActive ? gustDirection * 1.5 : 0),
+          vy: 0.5 + Math.random() * 0.6,
+          rot: Math.random() * Math.PI * 2,
+          vRot: (Math.random() - 0.5) * 0.04,
+          scale: scale * (0.75 + Math.random() * 0.45),
+          opacity: 0.95,
+          isWine
+        });
+
+        playPetalDetachSound();
+      }
+    }
+
+    function onPointerLeave() { pointerX = null; pointerY = null; }
+
+    container.addEventListener('pointermove', onPointerMove);
+    container.addEventListener('pointerdown', onPointerDown);
+    container.addEventListener('pointerleave', onPointerLeave);
+    container.addEventListener('pointercancel', onPointerLeave);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) lastTime = performance.now();
+    });
+
+    /**
+     * =========================================================================
+     * 60FPS DELTA-TIME ANIMATION LOOP
+     * =========================================================================
+     */
+    function render(now) {
+      if (!gardenRunning) return;
+
+      const rawDt = (now - lastTime) / 1000;
+      const dt = Math.min(0.05, Math.max(0.001, rawDt));
+      lastTime = now;
+
+      // Adaptive Performance Check
+      frameTimes.push(dt * 1000);
+      if (frameTimes.length > 60) frameTimes.shift();
+      if (now - lastAdaptiveCheck > 2000) {
+        lastAdaptiveCheck = now;
+        const avgFrame = frameTimes.reduce((a, b) => a + b, 0) / (frameTimes.length || 1);
+        if (avgFrame > CONFIG.adaptiveQuality.targetFrameTimeMs && !isReducedQuality) {
+          isReducedQuality = true;
+          initGarden();
+        }
+      }
+
+      if (!prefersReducedMotion) simTime += dt;
+      else simTime = 10.0;
+
+      // Dynamic ambient navy -> warm midnight purple
+      const shiftProgress = Math.min(1, Math.max(0, simTime / 5.0));
+      const p = easeInOutSine(shiftProgress);
+      const bgR = Math.round(5 + (8 - 5) * p);
+      const bgG = Math.round(5 + (4 - 5) * p);
+      const bgB = Math.round(7 + (11 - 7) * p);
+      ctx.fillStyle = `rgb(${bgR}, ${bgG}, ${bgB})`;
+      ctx.fillRect(0, 0, width, height);
+
+      // Soft vignette
+      const inR = Math.round(9 + (36 - 9) * p);
+      const inG = Math.round(15 + (12 - 15) * p);
+      const inB = Math.round(32 + (42 - 32) * p);
+      const inA = (0.48 + 0.04 * p).toFixed(3);
+      const vig = ctx.createRadialGradient(width * 0.5, height * 0.42, width * 0.1, width * 0.5, height * 0.45, Math.max(width, height) * 0.75);
+      vig.addColorStop(0, `rgba(${inR}, ${inG}, ${inB}, ${inA})`);
+      vig.addColorStop(0.65, `rgba(${bgR}, ${bgG}, ${bgB}, 0.86)`);
+      vig.addColorStop(1, `rgb(${bgR}, ${bgG}, ${bgB})`);
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, width, height);
+
+      // Bottom-Center Breathing Deep-Red Candle Glow
+      if (glowSprite) {
+        const rawSine = (Math.sin((simTime * Math.PI * 2) / CONFIG.colors.candleDeepRed.breathPeriod) + 1) * 0.5;
+        const breath = CONFIG.colors.candleDeepRed.breathMin + (CONFIG.colors.candleDeepRed.breathMax - CONFIG.colors.candleDeepRed.breathMin) * easeInOutSine(rawSine);
+        const gw = glowSprite.width / dpr, gh = glowSprite.height / dpr;
+        ctx.save();
+        ctx.globalAlpha = CONFIG.colors.candleDeepRed.opacity * breath;
+        ctx.drawImage(glowSprite, width * 0.5 - gw * 0.5, height - gh * 0.55, gw, gh);
+        ctx.restore();
+      }
+
+      // Moon State Update & Auto-cycle
+      if (moonTransitionProgress < 1.0) {
+        moonTransitionProgress = Math.min(1.0, moonTransitionProgress + dt / CONFIG.moon.crossfade);
+        if (moonTransitionProgress >= 1.0) {
+          moonCurrentPhase = moonTargetPhase;
+        }
+      }
+      if (moonIsAuto && moonTransitionProgress >= 1.0) {
+        moonAutoTimer += dt;
+        if (moonAutoTimer >= CONFIG.moon.autoCycle) {
+          moonAutoTimer = 0;
+          const phases = ['new', 'waxing-crescent', 'first-quarter', 'waxing-gibbous', 'full', 'waning-gibbous', 'last-quarter', 'waning-crescent'];
+          const idx = phases.indexOf(moonCurrentPhase);
+          moonTargetPhase = phases[(idx + 1) % phases.length];
+          moonTransitionProgress = 0;
+          updateMoonUI();
+        }
+      }
+
+      // Render Gothic Moon BEHIND roses, grass, and embers
+      drawGothicMoon(simTime);
+
+      // Traveling Wave Wind Gust Lifecycle
+      if (!gustActive && simTime >= gustNextTime) {
+        gustActive = true;
+        gustStartTime = simTime;
+        gustDuration = 4.0;
+        gustDirection = Math.random() < 0.75 ? 1 : -1;
+        gustPeakLean = CONFIG.wind.gust.peakLeanMin + Math.random() * (CONFIG.wind.gust.peakLeanMax - CONFIG.wind.gust.peakLeanMin);
+      }
+      let activeGustForce = 0;
+      if (gustActive) {
+        const gustAge = simTime - gustStartTime;
+        const totalWaveLifetime = gustDuration + CONFIG.wind.gust.waveCrossing;
+        if (gustAge > totalWaveLifetime) {
+          gustActive = false;
+          gustNextTime = simTime + CONFIG.wind.gust.minInterval + Math.random() * (CONFIG.wind.gust.maxInterval - CONFIG.wind.gust.minInterval);
+        } else {
+          if (gustAge <= CONFIG.wind.gust.rampUp) {
+            activeGustForce = easeInOutSine(gustAge / CONFIG.wind.gust.rampUp);
+          } else {
+            activeGustForce = Math.max(0, 1.0 - easeInOutSine(Math.min(1.0, (gustAge - CONFIG.wind.gust.rampUp) / CONFIG.wind.gust.fadeOut)));
+          }
+          if (gustAge >= 1.4 && gustAge <= 1.55 && Math.random() < 0.25 && roses.length > 0) {
+            const candidates = roses.filter(r => r.layer >= 1);
+            if (candidates.length > 0) {
+              const cr = candidates[Math.floor(Math.random() * candidates.length)];
+              fallingPetals.push({
+                x: cr.tipX, y: cr.tipY,
+                vx: (Math.random() - 0.5) * 0.7 + gustDirection * 1.4,
+                vy: 0.5 + Math.random() * 0.5,
+                rot: Math.random() * Math.PI * 2, vRot: (Math.random() - 0.5) * 0.04,
+                scale: 0.8 + Math.random() * 0.4, opacity: 0.9, isWine: cr.isWine
+              });
+            }
+          }
+        }
+      }
+
+      // Floating Embers & Particles (drift sideways faster during gusts)
+      for (let i = 0; i < particles.length; i++) {
+        const pt = particles[i];
+        pt.x += pt.vx + Math.sin(simTime * 1.5 + pt.phase) * 0.45 + (gustActive ? activeGustForce * gustDirection * 0.9 : 0);
+        pt.y += pt.vy;
+        if (pt.y < -15) {
+          pt.y = height + 15 + Math.random() * 20;
+          pt.x = Math.random() * width;
+        }
+        const twinkle = (Math.sin(simTime * pt.twinkleSpeed + pt.phase) + 1) * 0.5;
+        const currentAlpha = pt.alpha * (0.35 + 0.65 * twinkle);
+
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.size * 2.6, 0, Math.PI * 2);
+        ctx.fillStyle = pt.haloColor;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+        ctx.fillStyle = pt.color.replace(/[\d\.]+\)$/, `${currentAlpha})`);
+        ctx.fill();
+      }
+
+      // Grass Blades
+      ctx.save();
+      ctx.strokeStyle = CONFIG.colors.stems.midGreen;
+      for (let i = 0; i < grass.length; i++) {
+        const g = grass[i];
+        const gustGrassSway = gustActive ? (activeGustForce * gustDirection * 14 * (g.height / 50)) : 0;
+        const sway = Math.sin(simTime * 1.2 + g.phase) * g.curve + gustGrassSway;
+        ctx.lineWidth = g.width;
+        ctx.beginPath();
+        ctx.moveTo(g.x, height);
+        ctx.quadraticCurveTo(g.x + sway * 0.45, height - g.height * 0.5, g.x + sway, height - g.height);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Pointer Spring Physics
+      const dtFactor = Math.min(2.5, dt / 0.016);
+      for (let i = 0; i < roses.length; i++) {
+        const r = roses[i];
+        let targetAngle = 0;
+        if (pointerX !== null && pointerY !== null) {
+          const dx = r.tipX - pointerX;
+          const dy = r.tipY - pointerY;
+          const distSq = dx * dx + dy * dy;
+          if (distSq < CONFIG.pointer.radius * CONFIG.pointer.radius && distSq > 1) {
+            targetAngle = (dx >= 0 ? 1 : -1) * CONFIG.pointer.maxPush * (1 - Math.sqrt(distSq) / CONFIG.pointer.radius);
+          }
+        }
+        const disp = targetAngle - r.pointerDeflection;
+        r.pointerVelocity += disp * CONFIG.pointer.spring * dtFactor;
+        r.pointerVelocity *= Math.pow(CONFIG.pointer.damping, dtFactor);
+        r.pointerDeflection += r.pointerVelocity * dtFactor;
+      }
+
+      // Stems & Roses
+      const phaseIllums = {
+        'new': 0.08, 'waxing-crescent': 0.28, 'first-quarter': 0.55, 'waxing-gibbous': 0.82,
+        'full': 1.0, 'waning-gibbous': 0.82, 'last-quarter': 0.55, 'waning-crescent': 0.28
+      };
+      const moonIllum = phaseIllums[moonCurrentPhase] ?? 1.0;
+
+      for (let i = 0; i < roses.length; i++) {
+        const r = roses[i];
+        let stemProgress = prefersReducedMotion ? 1 : Math.min(1, Math.max(0, (simTime - r.stemStart) / r.stemDuration));
+        stemProgress = easeOutCubic(stemProgress);
+
+        let budScale = prefersReducedMotion ? 1 : Math.min(1, Math.max(0, (simTime - r.budStart) / CONFIG.timing.budScaleDuration));
+        budScale = easeOutCubic(budScale);
+
+        let bloomProgress = prefersReducedMotion ? 1 : Math.min(1, Math.max(0, (simTime - r.bloomStart) / r.bloomDuration));
+        bloomProgress = easeOutCubic(bloomProgress);
+
+        if (stemProgress <= 0) continue;
+
+        // Base Wind + Wave Gust Propagation
+        const baseWind = Math.sin(simTime * CONFIG.wind.baseFrequency + r.phase) * (CONFIG.wind.baseAmplitudeDeg * Math.PI / 180);
+        let travelingGustAngle = 0;
+        if (gustActive) {
+          const gustAge = simTime - gustStartTime;
+          const xNorm = Math.max(0, Math.min(1, r.tipX / Math.max(1, width)));
+          const waveDelay = gustDirection === 1 ? xNorm * CONFIG.wind.gust.waveCrossing : (1 - xNorm) * CONFIG.wind.gust.waveCrossing;
+          const localTime = gustAge - waveDelay;
+          if (localTime > 0 && localTime < gustDuration) {
+            let env = 0;
+            if (localTime <= CONFIG.wind.gust.rampUp) {
+              env = easeInOutSine(localTime / CONFIG.wind.gust.rampUp);
+            } else {
+              env = 1.0 - easeInOutSine((localTime - CONFIG.wind.gust.rampUp) / CONFIG.wind.gust.fadeOut);
+            }
+            travelingGustAngle = (env * gustPeakLean * gustDirection * Math.PI) / 180;
+          }
+        }
+        const windAngle = baseWind + travelingGustAngle;
+        const windDx = Math.sin(windAngle) * 20 * stemProgress;
+
+        const curTipX = r.tipX + windDx + r.pointerDeflection * 20;
+        const curTipY = r.tipY;
+        const curCpX = r.cpX + (windDx * 0.5 + r.pointerDeflection * 16) * stemProgress;
+
+        ctx.save();
+        ctx.globalAlpha = r.opacity;
+
+        ctx.beginPath();
+        ctx.moveTo(r.rootX, r.rootY);
+        const steps = 16;
+        for (let s = 1; s <= steps; s++) {
+          const t = (s / steps) * stemProgress;
+          ctx.lineTo(bezierPoint(t, r.rootX, curCpX, curTipX), bezierPoint(t, r.rootY, r.cpY, curTipY));
+        }
+        ctx.strokeStyle = CONFIG.colors.stems.midGreen;
+        ctx.lineWidth = r.stemWidth;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        const combinedAngle = windAngle + r.pointerDeflection;
+        if (bloomProgress > 0) {
+          const sp = roseSprites[r.spriteIdx];
+          if (sp) {
+            let breatheScale = 1.0;
+            let moonSheen = 0;
+            if (bloomProgress >= 0.90) {
+              const blend = (bloomProgress - 0.90) / 0.10;
+              const pulseCycle = Math.sin(simTime * CONFIG.roses.breathing.frequency + r.phase);
+              breatheScale = 1.0 + pulseCycle * CONFIG.roses.breathing.scaleAmplitude * blend;
+              // Moonlight sheen brightens with moon phase
+              moonSheen = Math.max(0, pulseCycle) * 0.12 * blend * moonIllum;
+            }
+
+            const sw = (sp.width / dpr) * r.scale * bloomProgress * breatheScale;
+            const sh = (sp.height / dpr) * r.scale * bloomProgress * breatheScale;
+            ctx.save();
+            ctx.translate(curTipX, curTipY);
+            ctx.rotate(combinedAngle);
+            ctx.drawImage(sp, -sw / 2, -sh / 2, sw, sh);
+            if (moonSheen > 0) {
+              ctx.save();
+              ctx.globalCompositeOperation = 'screen';
+              ctx.globalAlpha = moonSheen * r.opacity;
+              ctx.drawImage(sp, -sw / 2, -sh / 2, sw, sh);
+              ctx.restore();
+            }
+
+            // Subtle pulsing bioluminescent effect when moon is 'new' or 'crescent'
+            const isBioPhase = moonCurrentPhase === 'new' || moonCurrentPhase === 'waxing-crescent' || moonCurrentPhase === 'waning-crescent';
+            if (isBioPhase && bloomProgress >= 0.70) {
+              const bioBreath = (Math.sin(simTime * 0.9 + r.phase) + 1) * 0.5;
+              const bioAlpha = (0.16 + 0.28 * bioBreath) * r.opacity * ((bloomProgress - 0.70) / 0.30);
+              ctx.save();
+              ctx.globalCompositeOperation = 'screen';
+              ctx.globalAlpha = bioAlpha;
+
+              const auraRadius = (sw / 2) * 1.22;
+              const auraGrad = ctx.createRadialGradient(0, 0, sw * 0.15, 0, 0, auraRadius);
+              if (r.isWine) {
+                auraGrad.addColorStop(0, 'rgba(195, 85, 230, 0.45)');
+                auraGrad.addColorStop(0.55, 'rgba(120, 45, 180, 0.22)');
+                auraGrad.addColorStop(1, 'rgba(60, 20, 100, 0)');
+              } else {
+                auraGrad.addColorStop(0, 'rgba(64, 224, 208, 0.50)');
+                auraGrad.addColorStop(0.55, 'rgba(28, 160, 185, 0.25)');
+                auraGrad.addColorStop(1, 'rgba(10, 80, 100, 0)');
+              }
+              ctx.fillStyle = auraGrad;
+              ctx.beginPath();
+              ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
+              ctx.fill();
+
+              ctx.drawImage(sp, -sw / 2, -sh / 2, sw, sh);
+              ctx.restore();
+            }
+            ctx.restore();
+          }
+        } else if (budScale > 0) {
+          const bsp = budSprites[r.spriteIdx];
+          if (bsp) {
+            const bw = (bsp.width / dpr) * r.scale * budScale;
+            const bh = (bsp.height / dpr) * r.scale * budScale;
+            ctx.save();
+            ctx.translate(curTipX, curTipY);
+            ctx.rotate(combinedAngle);
+            ctx.drawImage(bsp, -bw / 2, -bh / 2, bw, bh);
+            ctx.restore();
+          }
+        }
+
+        ctx.restore();
+      }
+
+      // Silver Sparkles (pulsing sine on front roses)
+      if (sparkleSprite && simTime > 3.0) {
+        for (let i = 0; i < sparkles.length; i++) {
+          const spk = sparkles[i];
+          const rose = roses.find(r => r.id === spk.roseId);
+          if (!rose) continue;
+
+          let bloomProgress = prefersReducedMotion ? 1 : Math.min(1, Math.max(0, (simTime - rose.bloomStart) / rose.bloomDuration));
+          if (bloomProgress < 0.6) continue;
+
+          const globalWind = Math.sin(simTime * CONFIG.wind.baseFrequency);
+          const windAngle = ((globalWind * 0.65 + Math.sin(simTime * 1.1 + rose.phase) * 0.35) * CONFIG.wind.baseAmplitudeDeg * Math.PI) / 180;
+          const windDx = Math.sin(windAngle) * 20;
+          const curTipX = rose.tipX + windDx + rose.pointerDeflection * 20;
+
+          const sx = curTipX + spk.relX;
+          const sy = rose.tipY + spk.relY;
+
+          const sineVal = Math.sin((simTime * Math.PI * 2) / spk.period + spk.phase);
+          const normSine = (sineVal + 1) * 0.5;
+          const scScale = 0.3 + 0.7 * easeInOutSine(normSine);
+          const op = 0.9 * easeInOutSine(normSine) * (bloomProgress - 0.6) / 0.4;
+          const dSize = spk.baseSize * scScale * 4;
+
+          ctx.save();
+          ctx.globalAlpha = op;
+          ctx.drawImage(sparkleSprite, sx - dSize / 2, sy - dSize / 2, dSize, dSize);
+          ctx.restore();
+        }
+      }
+
+      // Falling Petals
+      if (simTime > 3.2 && now - lastPetalSpawn > 3800) {
+        lastPetalSpawn = now;
+        const candidates = roses.filter(r => r.layer >= 1);
+        if (candidates.length > 0) {
+          const cr = candidates[Math.floor(Math.random() * candidates.length)];
+          fallingPetals.push({
+            x: cr.tipX, y: cr.tipY,
+            vx: (Math.random() - 0.5) * 0.7, vy: 0.6 + Math.random() * 0.6,
+            rot: Math.random() * Math.PI * 2, vRot: (Math.random() - 0.5) * 0.03,
+            scale: 0.8 + Math.random() * 0.4, opacity: 0.9, isWine: cr.isWine
+          });
+        }
+      }
+
+      for (let i = fallingPetals.length - 1; i >= 0; i--) {
+        const fp = fallingPetals[i];
+        fp.x += fp.vx + Math.sin(simTime * 2 + fp.rot) * 0.7;
+        fp.y += fp.vy;
+        fp.rot += fp.vRot;
+        if (fp.y > height - 40) fp.opacity -= 0.02;
+
+        if (fp.opacity <= 0 || fp.y > height + 20) {
+          fallingPetals.splice(i, 1);
+        } else {
+          ctx.save();
+          ctx.translate(fp.x, fp.y);
+          ctx.rotate(fp.rot);
+          ctx.scale(fp.scale, fp.scale);
+          ctx.globalAlpha = fp.opacity;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.bezierCurveTo(-12, -8, -14, -20, 0, -22);
+          ctx.bezierCurveTo(14, -20, 12, -8, 0, 0);
+          ctx.fillStyle = fp.isWine ? '#2a0610' : '#14141a';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(140, 140, 155, 0.35)';
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // Text & Media Reveal Sequence (starts ~5s after unlock)
+      const textOverlay = document.getElementById('text-overlay');
+      const mediaStart = 3.8;
+      const textStart = CONFIG.timing.textStart;
+
+      if (prefersReducedMotion || simTime >= mediaStart) {
+        const memStage = document.getElementById('memory-stage');
+        if (memStage) {
+          memStage.style.opacity = prefersReducedMotion ? '1' : String(Math.min(1, (simTime - mediaStart) / 1.5));
+          memStage.style.transform = 'translateY(0) scale(1)';
+        }
+      }
+
+      if (prefersReducedMotion || simTime >= textStart) {
+        const tFade = prefersReducedMotion ? 1 : Math.min(1, (simTime - textStart) / CONFIG.timing.textFade);
+        textOverlay.style.background = `radial-gradient(circle at 50% 48%, rgba(5, 5, 7, ${tFade * 0.78}) 0%, rgba(5, 5, 7, 0) 86%)`;
+        const setLineState = (id, delay) => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.style.opacity = prefersReducedMotion ? '1' : String(Math.min(1, Math.max(0, (simTime - (textStart + delay)) / 0.8)));
+            el.style.transform = 'translateY(0)';
+          }
+        };
+        setLineState('line-subtitle', 0.0);
+        setLineState('line-title', 0.3);
+        setLineState('line-moontwin', 0.6);
+        setLineState('line-verse1', 1.0);
+        setLineState('line-verse2', 1.5);
+        setLineState('line-verse3', 2.0);
+        setLineState('line-verse4', 2.5);
+        setLineState('line-verse5', 3.0);
+        const divEl = document.getElementById('divider');
+        if (divEl) {
+          divEl.style.opacity = prefersReducedMotion ? '0.45' : String(Math.min(0.45, Math.max(0, (simTime - (textStart + 3.3)) / 0.8)));
+        }
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    let lastPetalSpawn = 0;
+
+    function startGardenAnimation() {
+      if (gardenRunning) return;
+      gardenRunning = true;
+      startTime = performance.now();
+      lastTime = performance.now();
+      simTime = prefersReducedMotion ? 10.0 : 0;
+      initGarden();
+      requestAnimationFrame(render);
+    }
+
+    /**
+     * =========================================================================
+     * PASSWORD GATE CONTROLLER
+     * =========================================================================
+     */
+    const lockScreen = document.getElementById('lock-screen');
+    const lockInput = document.getElementById('lock-input');
+    const lockOpenBtn = document.getElementById('lock-open-btn');
+    const lockToggleEye = document.getElementById('lock-toggle-eye');
+    const lockInputGroup = document.getElementById('lock-input-group');
+    const lockHint = document.getElementById('lock-hint');
+    const lockError = document.getElementById('lock-error');
+    const lockCooldown = document.getElementById('lock-cooldown');
+    const lockCanvas = document.getElementById('lock-canvas');
+
+    let failedAttempts = 0;
+    let lockoutRemaining = 0;
+    let lockoutTimer = null;
+    let lockParticlesAnim = null;
+
+    // Hint fades in after 1s
+    setTimeout(() => {
+      if (lockHint) lockHint.classList.add('show');
+    }, 1000);
+
+    // Drifting silver particles on lock screen
+    function startLockParticles() {
+      if (!lockCanvas) return;
+      const lctx = lockCanvas.getContext('2d');
+      if (!lctx) return;
+
+      let lw = lockCanvas.width = window.innerWidth;
+      let lh = lockCanvas.height = window.innerHeight;
+
+      const particles = Array.from({ length: 25 }, () => ({
+        x: Math.random() * lw,
+        y: Math.random() * lh,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: -0.2 - Math.random() * 0.4,
+        size: 1 + Math.random() * 2,
+        alpha: 0.2 + Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2
+      }));
+
+      function renderLock() {
+        lctx.clearRect(0, 0, lw, lh);
+        particles.forEach(p => {
+          p.y += p.vy;
+          p.x += p.vx + Math.sin(p.phase) * 0.2;
+          p.phase += 0.02;
+          if (p.y < -10) {
+            p.y = lh + 10;
+            p.x = Math.random() * lw;
+          }
+          lctx.beginPath();
+          lctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          lctx.fillStyle = `rgba(220, 225, 240, ${p.alpha})`;
+          lctx.fill();
+        });
+        lockParticlesAnim = requestAnimationFrame(renderLock);
+      }
+      renderLock();
+    }
+
+    startLockParticles();
+
+    // Toggle Eye Visibility
+    let eyeVisible = false;
+    if (lockToggleEye && lockInput) {
+      lockToggleEye.addEventListener('click', () => {
+        eyeVisible = !eyeVisible;
+        lockInput.type = eyeVisible ? 'text' : 'password';
+        const eyeIcon = document.getElementById('eye-icon');
+        if (eyeIcon) {
+          eyeIcon.innerHTML = eyeVisible
+            ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+            : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+        }
+      });
+    }
+
+    async function handleUnlockAttempt() {
+      if (lockoutRemaining > 0) return;
+      const val = lockInput.value.trim();
+      if (!val) return;
+
+      const hash = await sha256Hex(val);
+      if (hash === CONFIG.gate.passwordHash) {
+        // Correct password
+        try {
+          sessionStorage.setItem('garden_unlocked', 'true');
+        } catch (e) {}
+
+        // User gesture unlocks audio
+        initGothicAmbientAudio();
+
+        // Lock screen dissolve over 1.2s
+        if (lockScreen) {
+          lockScreen.classList.add('dissolve');
+          setTimeout(() => {
+            lockScreen.style.display = 'none';
+            if (lockParticlesAnim) cancelAnimationFrame(lockParticlesAnim);
+          }, 1200);
+        }
+
+        // Start garden simulation
+        startGardenAnimation();
+      } else {
+        // Wrong password
+        failedAttempts++;
+        lockInputGroup.classList.add('shake');
+        lockError.classList.add('show');
+        lockInput.value = '';
+
+        setTimeout(() => {
+          lockInputGroup.classList.remove('shake');
+        }, 500);
+
+        setTimeout(() => {
+          lockError.classList.remove('show');
+        }, 2200);
+
+        if (failedAttempts >= CONFIG.gate.lockoutAttempts) {
+          lockoutRemaining = CONFIG.gate.lockoutDurationSeconds;
+          lockInput.disabled = true;
+          lockOpenBtn.disabled = true;
+          lockCooldown.style.display = 'block';
+          lockCooldown.textContent = `Too many attempts. Try again in ${lockoutRemaining}s...`;
+
+          lockoutTimer = setInterval(() => {
+            lockoutRemaining--;
+            if (lockoutRemaining <= 0) {
+              clearInterval(lockoutTimer);
+              failedAttempts = 0;
+              lockInput.disabled = false;
+              lockOpenBtn.disabled = false;
+              lockCooldown.style.display = 'none';
+              lockInput.focus();
+            } else {
+              lockCooldown.textContent = `Too many attempts. Try again in ${lockoutRemaining}s...`;
+            }
+          }, 1000);
+        } else {
+          lockInput.focus();
+        }
+      }
+    }
+
+    if (lockOpenBtn) lockOpenBtn.addEventListener('click', handleUnlockAttempt);
+    if (lockInput) {
+      lockInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleUnlockAttempt();
+        }
+      });
+    }
+
+    // Check existing unlock status from sessionStorage
+    let alreadyUnlocked = false;
+    try {
+      if (sessionStorage.getItem('garden_unlocked') === 'true') {
+        alreadyUnlocked = true;
+      }
+    } catch (e) {}
+
+    if (alreadyUnlocked) {
+      if (lockScreen) lockScreen.style.display = 'none';
+      if (lockParticlesAnim) cancelAnimationFrame(lockParticlesAnim);
+      startGardenAnimation();
+    }
+
+    /**
+     * =========================================================================
+     * CONTROLS & EVENT LISTENERS
+     * =========================================================================
+     */
+    const moonBtn = document.getElementById('moon-btn');
+    const moonPopover = document.getElementById('moon-popover');
+    const moonAutoCheckbox = document.getElementById('moon-auto-checkbox');
+    const moonPhaseButtons = document.querySelectorAll('.moon-phase-dot-btn');
+    const musicBtn = document.getElementById('music-btn');
+
+    function updateMoonUI() {
+      if (moonAutoCheckbox) moonAutoCheckbox.checked = moonIsAuto;
+      moonPhaseButtons.forEach(btn => {
+        const p = btn.getAttribute('data-phase');
+        if (p === moonTargetPhase) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+      const label = document.getElementById('moon-btn-label');
+      if (label) label.textContent = moonIsAuto ? 'Moon (Auto)' : 'Moon';
+    }
+
+    if (moonBtn && moonPopover) {
+      moonBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        moonPopover.classList.toggle('open');
+      });
+      document.addEventListener('click', (e) => {
+        if (!moonPopover.contains(e.target) && e.target !== moonBtn) {
+          moonPopover.classList.remove('open');
+        }
+      });
+    }
+
+    moonPhaseButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const selected = btn.getAttribute('data-phase');
+        if (selected) {
+          moonIsAuto = false;
+          moonCurrentPhase = moonTargetPhase;
+          moonTargetPhase = selected;
+          moonTransitionProgress = 0;
+          updateMoonUI();
+          const url = new URL(window.location.href);
+          url.searchParams.set('moon', selected);
+          window.history.replaceState({}, '', url.toString());
+        }
+      });
+    });
+
+    if (moonAutoCheckbox) {
+      moonAutoCheckbox.addEventListener('change', (e) => {
+        moonIsAuto = e.target.checked;
+        moonAutoTimer = 0;
+        updateMoonUI();
+        const url = new URL(window.location.href);
+        if (moonIsAuto) url.searchParams.set('moon', 'auto');
+        else url.searchParams.set('moon', moonTargetPhase);
+        window.history.replaceState({}, '', url.toString());
+      });
+    }
+
+    if (musicBtn) {
+      musicBtn.addEventListener('click', () => {
+        toggleMusicMute();
+      });
+    }
+
+    updateMoonUI();
+
+    document.getElementById('replay-btn').addEventListener('click', () => {
+      startTime = performance.now();
+      lastTime = performance.now();
+      simTime = 0;
+      const textOverlay = document.getElementById('text-overlay');
+      textOverlay.style.background = 'transparent';
+      const memStage = document.getElementById('memory-stage');
+      if (memStage) {
+        memStage.style.opacity = '0';
+        memStage.style.transform = 'translateY(14px) scale(0.96)';
+      }
+      ['line-subtitle', 'line-title', 'line-moontwin', 'line-verse1', 'line-verse2', 'line-verse3', 'line-verse4', 'line-verse5', 'divider'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.style.opacity = '0';
+          el.style.transform = 'translateY(8px)';
+        }
+      });
+      initGarden();
+    });
+
+    let debouncedResize;
+    window.addEventListener('resize', () => {
+      clearTimeout(debouncedResize);
+      debouncedResize = setTimeout(resize, 150);
+    });
+    window.addEventListener('orientationchange', () => {
+      clearTimeout(debouncedResize);
+      debouncedResize = setTimeout(resize, 150);
+    });
+
+    resize();
+  </script>
+</body>
+</html>

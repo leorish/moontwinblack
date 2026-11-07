@@ -1,0 +1,6 @@
+{
+  "name": "Garden of Black Roses",
+  "description": "A cinematic generative dark romance canvas of blooming velvet black roses swaying in moonlight with embers and customizable dedications.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
